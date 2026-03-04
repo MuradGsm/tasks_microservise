@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: sjira
+      POSTGRES_PASSWORD: sjira
+      POSTGRES_DB: sjira
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  api-gateway:
+    build: ./services/api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      IDENTITY_URL: http://identity-service:8000
+      PROJECT_URL: http://project-service:8000
+    depends_on:
+      - postgres
+      - redis
+      - identity-service
+      
+  identity-service:
+    build: ./services/identity-service
+    ports:
+      - '8003:8000'
+    environment:
+      POSTGRES_DB: sjira
+      POSTGRES_USER: sjira
+      POSTGRES_PASSWORD: sjira
+      POSTGRES_host: postgres
+      POSTGRES_PORT: 5432
+    depends_on:
+      - postgres
+
+  project-service:
+    build: ./services/project-service
+    ports:
+      - "8004:8000"
+    environment:
+      POSTGRES_USER: sjira
+      POSTGRES_PASSWORD: sjira
+      POSTGRES_DB: sjira
+      POSTGRES_HOST: postgres
+    depends_on:
+      - postgres
+      
