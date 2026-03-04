@@ -1,8 +1,10 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Body, Header
+from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import text, select
-from app.config.database import get_session, engine, Base
+from sqlalchemy import text
 from app.models.project import Project
+
+from app.config.database import get_session, engine, Base
+from app.api.v1.router import router as project_router
 
 app = FastAPI(title="SJira API Project Service")
 
@@ -25,37 +27,4 @@ async def on_startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-
-@app.post("/v1/projects")
-async def create_project(
-    key: str = Body(...),
-    name: str =Body(...),
-    x_user_id: int = Header(..., alias='X-User-Id'),
-    session: AsyncSession = Depends(get_session)
-):
-    project = Project(
-        key=key, name=name, owner_id=x_user_id
-    )
-    session.add(project)
-    await session.commit()
-    await session.refresh(project)
-    return {
-        "id": project.id,
-        "key": project.key,
-        "name": project.name,
-        "owner_id": project.owner_id
-    }
-
-
-@app.get('/v1/projects')
-async def get_projects(
-    x_user_id: int = Header(..., alias='X-User-Id'),
-    session: AsyncSession = Depends(get_session)):
-    result = await session.execute(select(Project).where(Project.owner_id == x_user_id))
-    projects = result.scalars().all()
-    return [{
-        "id": p.id,
-        "key": p.key,
-        "name": p.name,
-        "owner_id": p.owner_id
-    } for p in projects]
+app.include_router(project_router, prefix="/v1")
