@@ -7,36 +7,36 @@ services:
       POSTGRES_DB: sjira
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sjira -d sjira"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   redis:
     image: redis:7
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
-  api-gateway:
-    build: ./services/api-gateway
-    ports:
-      - "8000:8000"
-    environment:
-      IDENTITY_URL: http://identity-service:8000
-      PROJECT_URL: http://project-service:8000
-    depends_on:
-      - postgres
-      - redis
-      - identity-service
-      
   identity-service:
     build: ./services/identity-service
     ports:
-      - '8003:8000'
+      - "8003:8000"
     environment:
       POSTGRES_DB: sjira
       POSTGRES_USER: sjira
       POSTGRES_PASSWORD: sjira
-      POSTGRES_host: postgres
+      POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
+      PROJECT_SERVICE_URL: http://project-service:8000
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
 
   project-service:
     build: ./services/project-service
@@ -48,5 +48,39 @@ services:
       POSTGRES_DB: sjira
       POSTGRES_HOST: postgres
     depends_on:
-      - postgres
-      
+      postgres:
+        condition: service_healthy
+
+  issue-service:
+    build: ./services/issue-service
+    ports:
+      - "8005:8000"
+    environment:
+      POSTGRES_USER: sjira
+      POSTGRES_PASSWORD: sjira
+      POSTGRES_DB: sjira
+      POSTGRES_HOST: postgres
+      PROJECT_SERVICE_URL: http://project-service:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api-gateway:
+    build: ./services/api-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      IDENTITY_URL: http://identity-service:8000
+      PROJECT_URL: http://project-service:8000
+      ISSUE_URL: http://issue-service:8000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      identity-service:
+        condition: service_started
+      project-service:
+        condition: service_started
+      issue-service:
+        condition: service_started
