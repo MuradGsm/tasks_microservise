@@ -3,8 +3,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.issue import Issue, IssueCounter
 from app.schemas.issue import IssueCreate, IssueOut, IssueUpdate
+from app.schemas.transition import TransitionRequest, TransitionResponse
 from app.services.project_key import get_project_key
 from app.services.access_issue import _validate_update, _get_issue_or_404
+from app.services.workflow import validate_status, asserts_transition_allowed
 
 def _to_out(issue: Issue, project_key: str) -> IssueOut:
     return IssueOut(
@@ -105,3 +107,24 @@ class IssuesService:
 
         issue.is_deleted = True
         await session.commit()
+
+    @staticmethod
+    async def transition(issue_id: int, payload: TransitionRequest, user_id: int, session: AsyncSession) -> TransitionResponse:
+        issue = await _get_issue_or_404(issue_id, session)
+
+        await get_project_key(issue.project_id, user_id)
+
+        from_status = issue.status
+        to_status = validate_status(payload.to_status)
+        
+        asserts_transition_allowed(from_status, to_status)
+
+        issue.status = to_status
+        await session.commit()
+        await session.refresh(issue)
+
+        return TransitionResponse(
+            issue_id=issue.id,
+            from_status=from_status,
+            to_status=to_status,
+        )

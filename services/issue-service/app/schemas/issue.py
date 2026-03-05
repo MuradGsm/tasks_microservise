@@ -21,6 +21,5 @@ class IssueOut(BaseModel):
 class IssueUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=3, max_length=255)
     description: Optional[str] = None
-    status: Optional[str] = None
     type: Optional[str] = None
     assignee_id: Optional[int] = None

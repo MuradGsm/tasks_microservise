@@ -4,13 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.issue import Issue
 
-ALLOWED_STATUSES = {"OPEN", "IN_PROGRESS", "DONE"}
 ALLOWED_TYPES = {"TASK", "BUG", "STORY"}
 
 
 def _validate_update(data: dict) -> None:
-    if "status" in data and data["status"] not in ALLOWED_STATUSES:
-        raise HTTPException(status_code=422, detail="Invalid status")
     if "type" in data and data["type"] not in ALLOWED_TYPES:
         raise HTTPException(status_code=422, detail="Invalid type")
 
