@@ -16,7 +16,7 @@ class Issue(Base):
         Index("ix_issue_reporter_id", "reporter_id"),
     )
 
-    id: Mapped[int] = int_pk
+    id: Mapped[int] = int_pk()
     project_id: Mapped[int] = mapped_column(Integer, nullable=False)
 
     number: Mapped[int] = mapped_column(Integer, nullable=False)  # 1,2,3 внутри проекта
@@ -31,3 +31,14 @@ class Issue(Base):
     assignee_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class IssueComment(Base):
+    __table_args__ = (
+        Index("ix_issue_comment_issue_id", "issue_id"),
+        Index("ix_issue_comment_author_id", "author_id")
+    )
+    id: Mapped[int] = int_pk()
+    issue_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    author_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)

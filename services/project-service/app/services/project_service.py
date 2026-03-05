@@ -32,8 +32,8 @@ async def get_project(session: AsyncSession, *, project_id: int, owner_id: int) 
 async def update_project(session: AsyncSession, *, owner_id: int, project_id: int, name: str) -> Project:
     project = await get_project(session, project_id=project_id, owner_id=owner_id)
     project.name = name
-    session.commit()
-    session.refresh(project)
+    await session.commit()
+    await session.refresh(project)
     return project
 
 async def delete_project(session: AsyncSession, *, owner_id: int, project_id: int) -> None:
