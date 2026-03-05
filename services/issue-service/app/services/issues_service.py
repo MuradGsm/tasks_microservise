@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.issue import Issue, IssueCounter
+from app.models.issue import Issue, IssueCounter, IssueHistory
 from app.schemas.issue import IssueCreate, IssueOut, IssueUpdate
 from app.schemas.transition import TransitionRequest, TransitionResponse
 from app.services.project_key import get_project_key
@@ -120,6 +120,15 @@ class IssuesService:
         asserts_transition_allowed(from_status, to_status)
 
         issue.status = to_status
+        session.add(
+            IssueHistory(
+                issue_id=issue.id,
+                actor_id=user_id,
+                field="status",
+                old_value=from_status,
+                new_value=to_status,
+            )
+        )
         await session.commit()
         await session.refresh(issue)
 

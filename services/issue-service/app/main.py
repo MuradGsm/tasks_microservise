@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
 from app.config.database import get_session, engine, Base
-from app.models.issue import Issue, IssueCounter, IssueComment
+from app.models.issue import Issue, IssueCounter, IssueComment, IssueHistory
 from app.api.v1.router import router as v1_router
 
 app = FastAPI(title="SJira API Issue Service")

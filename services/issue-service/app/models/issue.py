@@ -19,7 +19,7 @@ class Issue(Base):
     id: Mapped[int] = int_pk()
     project_id: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    number: Mapped[int] = mapped_column(Integer, nullable=False)  # 1,2,3 внутри проекта
+    number: Mapped[int] = mapped_column(Integer, nullable=False)  
 
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -42,3 +42,18 @@ class IssueComment(Base):
     issue_id: Mapped[int] = mapped_column(Integer, nullable=False)
     author_id: Mapped[int] = mapped_column(Integer, nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class IssueHistory(Base):
+    __table_args__= (
+        Index('ix_issue_history_issue_id', "issue_id"),
+        Index('ix_issue_history_actor_id', "actor_id"),
+    )
+    id: Mapped[int] = int_pk()
+    issue_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor_id: Mapped[int] = mapped_column(Integer, nullable=False)
+   
+
+    field: Mapped[str] = mapped_column(String(64), nullable=False)
+    old_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    new_value: Mapped[str | None] = mapped_column(Text, nullable=True)
