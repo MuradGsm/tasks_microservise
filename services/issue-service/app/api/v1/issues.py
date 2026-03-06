@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header, Response
+from fastapi import APIRouter, Depends, Header, Response, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import get_session
@@ -22,9 +22,26 @@ async def create_issue(
 async def list_issues(
     project_id: int,
     x_user_id: int = Header(..., alias="X-User-Id"),
+    status: str | None = Query(None),
+    type: str | None = Query(None),
+    assignee_id: int | None = Query(None),
+    reporter_id: int|None = Query(None),
+    q: str| None = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_session),
 ):
-    return await IssuesService.list_by_project(project_id, x_user_id, session)
+    return await IssuesService.list_by_project( 
+        project_id,
+        x_user_id,
+        session,
+        status=status,
+        type=type,
+        assignee_id=assignee_id,
+        reporter_id=reporter_id,
+        q=q,
+        limit=limit,
+        offset=offset,)
 
 
 @router.get("/issues/{issue_id}", response_model=IssueOut)

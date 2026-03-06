@@ -1,12 +1,15 @@
-from sqlalchemy import select
+from fastapi import HTTPException
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.issue import Issue, IssueCounter, IssueHistory
 from app.schemas.issue import IssueCreate, IssueOut, IssueUpdate
 from app.schemas.transition import TransitionRequest, TransitionResponse
 from app.services.project_key import get_project_key
-from app.services.access_issue import _validate_update, _get_issue_or_404
-from app.services.workflow import validate_status, asserts_transition_allowed
+from app.services.access_issue import _validate_update, _get_issue_or_404, ALLOWED_TYPES
+from app.services.workflow import validate_status, asserts_transition_allowed, ALLOWED_STATUSES
+from app.services.history_utils import add_history
+
 
 def _to_out(issue: Issue, project_key: str) -> IssueOut:
     return IssueOut(
@@ -62,14 +65,57 @@ class IssuesService:
         return _to_out(issue, project_key)
 
     @staticmethod
-    async def list_by_project(project_id: int, user_id: int, session: AsyncSession) -> list[IssueOut]:
+    async def list_by_project(
+        project_id: int,
+        user_id: int,
+        session: AsyncSession,
+        status: str | None = None,
+        type: str | None = None,
+        assignee_id: int | None = None,
+        reporter_id: int | None = None,
+        q: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[IssueOut]:
         project_key = await get_project_key(project_id, user_id)
 
-        result = await session.execute(
+        stmt = (
             select(Issue)
             .where(Issue.project_id == project_id, Issue.is_deleted == False)  # noqa: E712
-            .order_by(Issue.number.asc())
         )
+
+        if status:
+            status = status.strip().upper()
+            if status not in ALLOWED_STATUSES:
+                raise HTTPException(status_code=422, detail="Invalid status")
+            stmt = stmt.where(Issue.status == status)
+
+        if type:
+            type = type.strip().upper()
+            if type not in ALLOWED_TYPES:
+                raise HTTPException(status_code=422, detail="Invalid type")
+            stmt = stmt.where(Issue.type == type)
+
+        if assignee_id is not None:
+            stmt = stmt.where(Issue.assignee_id == assignee_id)
+
+        if reporter_id is not None:
+            stmt = stmt.where(Issue.reporter_id == reporter_id)
+
+        if q:
+            q = q.strip()
+            if q:
+                pattern = f"%{q}%"
+                stmt = stmt.where(
+                    or_(
+                        Issue.title.ilike(pattern),
+                        Issue.description.ilike(pattern),
+                    )
+                )
+
+        stmt = stmt.order_by(Issue.number.asc()).limit(limit).offset(offset)
+
+        result = await session.execute(stmt)
         issues = result.scalars().all()
 
         return [_to_out(i, project_key) for i in issues]
@@ -90,8 +136,24 @@ class IssuesService:
         data = payload.model_dump(exclude_unset=True)
         _validate_update(data)
 
-        for field, value in data.items():
-            setattr(issue, field, value)
+        for field, new_value in data.items():
+
+            old_value = getattr(issue, field)
+
+            if old_value == new_value:
+                continue
+
+            session.add(
+                IssueHistory(
+                    issue_id=issue.id,
+                    actor_id=user_id,
+                    field=field,
+                    old_value=str(old_value) if old_value is not None else None,
+                    new_value=str(new_value) if new_value is not None else None,
+                )
+            )
+
+            setattr(issue, field, new_value)
 
         await session.commit()
         await session.refresh(issue)
