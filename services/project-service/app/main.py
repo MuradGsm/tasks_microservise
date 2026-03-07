@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
-from app.models.project import Project
+from app.models.project import Project, ProjectMember
 
 from app.config.database import get_session, engine, Base
 from app.api.v1.router import router as project_router

@@ -7,6 +7,8 @@ services:
       POSTGRES_DB: sjira
     ports:
       - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U sjira -d sjira"]
       interval: 5s
@@ -84,3 +86,7 @@ services:
         condition: service_started
       issue-service:
         condition: service_started
+
+
+volumes:
+  postgres_data:
