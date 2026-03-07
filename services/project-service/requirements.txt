@@ -3,3 +3,5 @@ uvicorn[standard]
 SQLAlchemy
 asyncpg
 pydantic_settings
+alembic
+psycopg2-binary

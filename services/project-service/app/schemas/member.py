@@ -19,3 +19,6 @@ class ProjectMemberOut(BaseModel):
     user_id: int
     role: str
      
+
+class ProjectAccessOut(BaseModel):
+    has_access: bool

@@ -39,7 +39,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-
+        
   project-service:
     build: ./services/project-service
     ports:
@@ -47,8 +47,10 @@ services:
     environment:
       POSTGRES_USER: sjira
       POSTGRES_PASSWORD: sjira
-      POSTGRES_DB: sjira
+      POSTGRES_DB: sjira_project
       POSTGRES_HOST: postgres
+    volumes:
+      - ./services/project-service:/app
     depends_on:
       postgres:
         condition: service_healthy
@@ -60,9 +62,11 @@ services:
     environment:
       POSTGRES_USER: sjira
       POSTGRES_PASSWORD: sjira
-      POSTGRES_DB: sjira
+      POSTGRES_DB: sjira_issue
       POSTGRES_HOST: postgres
       PROJECT_SERVICE_URL: http://project-service:8000
+    volumes:
+      - ./services/issue-service:/app
     depends_on:
       postgres:
         condition: service_healthy

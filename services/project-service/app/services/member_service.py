@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from app.schemas.member import ProjectMemberCreate, ProjectMemberOut
 from app.services.project_service import get_project
-from app.models.project import ProjectMember
+from app.models.project import ProjectMember, Project
 
 async def add_memeber(
     session: AsyncSession, *, project_id: int, owner_id: int, payload: ProjectMemberCreate
@@ -57,3 +57,28 @@ async def delete_memeber(session: AsyncSession, *, project_id: int, owner_id: in
     
     await session.delete(member)
     await session.commit()
+
+async def has_project_access(
+    session: AsyncSession,
+    *,
+    project_id: int,
+    user_id: int
+) -> bool:
+    project_result = await session.execute(select(Project).where(Project.id == project_id))
+
+    project = project_result.scalar_one_or_none()
+
+    if project is None:
+        return False
+    
+    if project.owner_id == user_id:
+        return True
+    
+    member_result = await session.execute(select(ProjectMember).where(
+        ProjectMember.project_id == project_id,
+        ProjectMember.user_id == user_id
+    ))
+
+    memeber = member_result.scalar_one_or_none()
+
+    return memeber is not None

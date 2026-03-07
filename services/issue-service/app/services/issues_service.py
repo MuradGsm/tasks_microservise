@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.issue import Issue, IssueCounter, IssueHistory
 from app.schemas.issue import IssueCreate, IssueOut, IssueUpdate
 from app.schemas.transition import TransitionRequest, TransitionResponse
-from app.services.project_key import get_project_key
+from app.services.project_key import get_project_key, check_project_access
 from app.services.access_issue import _validate_update, _get_issue_or_404, ALLOWED_TYPES
 from app.services.workflow import validate_status, asserts_transition_allowed, ALLOWED_STATUSES
 from app.services.history_utils import add_history
@@ -135,6 +135,20 @@ class IssuesService:
 
         data = payload.model_dump(exclude_unset=True)
         _validate_update(data)
+
+        if "assignee_id" in data and data["assignee_id"] is not None:
+            print("DEBUG issue.project_id =", issue.project_id)
+            print("DEBUG assignee_id =", data["assignee_id"])
+
+            has_access = await check_project_access(issue.project_id, data["assignee_id"])
+
+            print("DEBUG has_access =", has_access)
+
+            if not has_access:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Assignee must be a project member or owner",
+                )
 
         for field, new_value in data.items():
 

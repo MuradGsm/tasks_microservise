@@ -33,3 +33,20 @@ async def get_project_key(project_id: int, user_id: int) -> str:
 
     except httpx.RequestError:
         raise HTTPException(status_code=502, detail="Project service unavailable")
+
+
+async def check_project_access(project_id: int, user_id: int) -> bool:
+    url = f"{setting.PROJECT_SERVICE_URL.rstrip('/')}/v1/projects/{project_id}/access/{user_id}"
+
+    try:
+        async with httpx.AsyncClient(timeout=PROJECT_TIMEOUT) as client:
+            resp = await client.get(url)
+        
+        if resp.status_code == 200:
+            data = resp.json()
+            return bool(data.get('hass_access', False))
+        
+        raise HTTPException(status_code=502, detail="Project service unavailable")
+    
+    except httpx.RequestError:
+        raise HTTPException(status_code=502, detail="Project service unavailable")

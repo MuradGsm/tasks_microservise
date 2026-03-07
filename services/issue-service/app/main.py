@@ -3,7 +3,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 
 from app.config.database import get_session, engine, Base
-from app.models.issue import Issue, IssueCounter, IssueComment, IssueHistory
 from app.api.v1.router import router as v1_router
 
 app = FastAPI(title="SJira API Issue Service")
@@ -21,10 +20,5 @@ async def health_db(session: AsyncSession = Depends(get_session)):
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"DB error: {e}")
 
-
-@app.on_event('startup')
-async def on_startup():
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
 
 app.include_router(v1_router, prefix="/v1")

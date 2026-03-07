@@ -2,7 +2,7 @@ from fastapi import Depends, Header, APIRouter, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config.database import get_session
-from app.schemas.member import ProjectMemberCreate, ProjectMemberOut
+from app.schemas.member import ProjectMemberCreate, ProjectMemberOut, ProjectAccessOut
 from app.services import member_service
 
 router = APIRouter()
@@ -55,3 +55,12 @@ async def delete_memeber(
         owner_id=x_user_id,
     )
     return Response(status_code=204)
+
+@router.get("/{project_id}/access/{user_id}", response_model=ProjectAccessOut)
+async def check_project_access(
+    project_id: int,
+    user_id: int,
+    session: AsyncSession = Depends(get_session)
+):
+    has_access = await member_service.has_project_access(session, project_id=project_id, user_id=user_id)
+    return ProjectAccessOut(has_access=has_access)
