@@ -5,3 +5,6 @@ asyncpg
 pydantic_settings
 alembic
 psycopg2-binary
+pytest
+pytest-asyncio
+httpx
