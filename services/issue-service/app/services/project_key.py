@@ -44,7 +44,7 @@ async def check_project_access(project_id: int, user_id: int) -> bool:
         
         if resp.status_code == 200:
             data = resp.json()
-            return bool(data.get('hass_access', False))
+            return bool(data.get('has_access', False))
         
         raise HTTPException(status_code=502, detail="Project service unavailable")
     
