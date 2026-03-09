@@ -90,7 +90,18 @@ services:
         condition: service_started
       issue-service:
         condition: service_started
-
+  worker-service:
+    build: ./services/worker-service
+    ports:
+      - "8006:8000"
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      EVENTS_QUEUE_NAME: sjira:events
+    volumes:
+      - ./services/worker-service:/app
+    depends_on:
+      redis:
+        condition: service_healthy
 
 volumes:
   postgres_data:
