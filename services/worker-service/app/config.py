@@ -8,6 +8,8 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://redis:6379/0"
     EVENTS_QUEUE_NAME: str = "sjira:events"
 
+    NOTIFICATIONS_URL: str = "http://notifications-service:8000"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore"

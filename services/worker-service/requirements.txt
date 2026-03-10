@@ -3,3 +3,4 @@ uvicorn[standard]==0.30.6
 pydantic-settings==2.5.2
 pydantic
 redis==5.0.8
+httpx

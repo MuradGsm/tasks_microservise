@@ -101,11 +101,15 @@ services:
     environment:
       REDIS_URL: redis://redis:6379/0
       EVENTS_QUEUE_NAME: sjira:events
+      NOTIFICATIONS_URL: http://notifications-service:8000
     volumes:
       - ./services/worker-service:/app
     depends_on:
       redis:
         condition: service_healthy
+      notifications-service:
+        condition: service_started
+        
   notifications-service:
     build: ./services/notifications-service
     ports:
