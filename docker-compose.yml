@@ -65,10 +65,14 @@ services:
       POSTGRES_DB: sjira_issue
       POSTGRES_HOST: postgres
       PROJECT_SERVICE_URL: http://project-service:8000
+      REDIS_URL: redis://redis:6379/0
+      EVENTS_QUEUE_NAME: sjira:events
     volumes:
       - ./services/issue-service:/app
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   api-gateway:

@@ -9,6 +9,9 @@ class Settings(BaseSettings):
 
     PROJECT_SERVICE_URL: str
 
+    REDIS_URL: str = "redis://redis:6379/0"
+    EVENTS_QUEUE_NAME: str = "sjira:events"
+
     @property
     def DATABASE_URL(self) -> str:
         return (

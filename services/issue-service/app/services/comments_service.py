@@ -5,6 +5,7 @@ from app.models.issue import Issue, IssueComment
 from app.schemas.comment import CommentCreate, CommentOut
 from app.services.project_key import get_project_key
 from app.services.access_issue import _get_issue_or_404
+from app.events.publisher import publish_event
 
 def _to_out(c: IssueComment) -> CommentOut:
     return CommentOut(
@@ -28,6 +29,16 @@ class CommentService:
         session.add(comment)
         await session.commit()
         await session.refresh(comment)
+
+        await publish_event(
+            {
+                "event_type": "comment_added",
+                "issue_id": issue_id,
+                "comment_id": comment.id,
+                "project_id": issue.project_id,
+                "actor_id": user_id,
+            }
+        )
 
         return _to_out(comment)
     

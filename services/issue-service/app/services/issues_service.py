@@ -9,7 +9,7 @@ from app.services.project_key import get_project_key, check_project_access
 from app.services.access_issue import _validate_update, _get_issue_or_404, ALLOWED_TYPES
 from app.services.workflow import validate_status, asserts_transition_allowed, ALLOWED_STATUSES
 from app.services.history_utils import add_history
-
+from app.events.publisher import publish_event
 
 def _to_out(issue: Issue, project_key: str) -> IssueOut:
     return IssueOut(
@@ -62,8 +62,16 @@ class IssuesService:
         await session.commit()
         await session.refresh(issue)
 
-        return _to_out(issue, project_key)
+        await publish_event(
+            {
+                "event_type": "issue_created",
+                "issue_id": issue.id,
+                "project_id": issue.project_id,
+                "actor_id": user_id,
+            }
+        )
 
+        return _to_out(issue, project_key)
     @staticmethod
     async def list_by_project(
         project_id: int,
@@ -207,6 +215,18 @@ class IssuesService:
         )
         await session.commit()
         await session.refresh(issue)
+
+        await publish_event(
+            {
+
+                "event_type": "issue_status_changed",
+                "issue_id": issue_id,
+                "project_id": issue.project_id,
+                "actor_id": user_id,
+                "old_status": from_status,
+                "new_status": to_status
+            }
+        )
 
         return TransitionResponse(
             issue_id=issue.id,
