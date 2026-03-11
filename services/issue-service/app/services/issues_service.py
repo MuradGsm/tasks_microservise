@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.issue import Issue, IssueCounter, IssueHistory
 from app.schemas.issue import IssueCreate, IssueOut, IssueUpdate
 from app.schemas.transition import TransitionRequest, TransitionResponse
+from app.schemas.internal import IssueInternalOut
 from app.services.project_key import get_project_key, check_project_access
 from app.services.access_issue import _validate_update, _get_issue_or_404, ALLOWED_TYPES
 from app.services.workflow import validate_status, asserts_transition_allowed, ALLOWED_STATUSES
@@ -232,4 +233,15 @@ class IssuesService:
             issue_id=issue.id,
             from_status=from_status,
             to_status=to_status,
+        )
+
+    @staticmethod
+    async def get_internal(issue_id: int, session: AsyncSession) -> IssueInternalOut:
+        issue = await _get_issue_or_404(issue_id, session)
+
+        return IssueInternalOut(
+            id=issue.id,
+            project_id=issue.project_id,
+            reporter_id=issue.reporter_id,
+            assignee_id=issue.assignee_id,
         )

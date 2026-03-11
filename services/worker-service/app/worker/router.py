@@ -7,7 +7,7 @@ from app.worker.handlers import (
     handle_unknown_event,
 )
 
-from app.worker.schemas import (
+from app.schemas.issue_handlers import (
     CommentAddedEvent,
     IssueCreatedEvent,
     IssueStatusChangedEvent

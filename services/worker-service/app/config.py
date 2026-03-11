@@ -9,7 +9,8 @@ class Settings(BaseSettings):
     EVENTS_QUEUE_NAME: str = "sjira:events"
 
     NOTIFICATIONS_URL: str = "http://notifications-service:8000"
-
+    ISSUE_URL: str = "http://issue-service:8000"
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         extra="ignore"
