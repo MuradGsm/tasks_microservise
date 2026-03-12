@@ -10,7 +10,7 @@ app = FastAPI(title="SJira API Gateway")
 IDENTITY_URL = os.getenv("IDENTITY_URL", "http://identity-service:8000")
 PROJECT_URL = os.getenv("PROJECT_URL", "http://project-service:8000")
 ISSUE_URL = os.getenv("ISSUE_URL", "http://issue-service:8000")
-
+NOTIFICATIONS_URL = os.getenv("NOTIFICATIONS_URL", "http://notifications-service:8000")
 
 # 1) Request-ID всегда добавляем первым
 @app.middleware("http")
@@ -133,6 +133,37 @@ async def proxy_issues(request: Request, path: str):
             content=body,
             headers=headers,
         )
+    return Response(
+        content=upstream_resp.content,
+        status_code=upstream_resp.status_code,
+        media_type=upstream_resp.headers.get("content-type"),
+    )
+
+@app.api_route("/notifications", methods=["GET"])
+@app.api_route("/notifications/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def proxy_notifications(request: Request, path: str = ""):
+    upstream_url = f"{NOTIFICATIONS_URL}/v1/notifications"
+
+    if path:
+        upstream_url = f"{upstream_url}/{path}"
+
+    body = await request.body()
+
+    headers = {}
+    if request.headers.get("content-type"):
+        headers["content-type"] = request.headers["content-type"]
+
+    headers["X-User-Id"] = getattr(request.state, "user_id", "")
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        upstream_resp = await client.request(
+            method=request.method,
+            url=upstream_url,
+            params=request.query_params,
+            content=body,
+            headers=headers,
+        )
+
     return Response(
         content=upstream_resp.content,
         status_code=upstream_resp.status_code,
