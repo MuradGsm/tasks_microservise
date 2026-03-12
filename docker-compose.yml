@@ -39,7 +39,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-        
+
   project-service:
     build: ./services/project-service
     ports:
@@ -49,6 +49,7 @@ services:
       POSTGRES_PASSWORD: sjira
       POSTGRES_DB: sjira_project
       POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
     volumes:
       - ./services/project-service:/app
     depends_on:
@@ -64,6 +65,7 @@ services:
       POSTGRES_PASSWORD: sjira
       POSTGRES_DB: sjira_issue
       POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
       PROJECT_SERVICE_URL: http://project-service:8000
       REDIS_URL: redis://redis:6379/0
       EVENTS_QUEUE_NAME: sjira:events
@@ -83,6 +85,7 @@ services:
       IDENTITY_URL: http://identity-service:8000
       PROJECT_URL: http://project-service:8000
       ISSUE_URL: http://issue-service:8000
+      NOTIFICATIONS_URL: http://notifications-service:8000
     depends_on:
       postgres:
         condition: service_healthy
@@ -94,6 +97,9 @@ services:
         condition: service_started
       issue-service:
         condition: service_started
+      notifications-service:
+        condition: service_started
+
   worker-service:
     build: ./services/worker-service
     ports:
@@ -102,6 +108,7 @@ services:
       REDIS_URL: redis://redis:6379/0
       EVENTS_QUEUE_NAME: sjira:events
       NOTIFICATIONS_URL: http://notifications-service:8000
+      ISSUE_URL: http://issue-service:8000
     volumes:
       - ./services/worker-service:/app
     depends_on:
@@ -109,13 +116,25 @@ services:
         condition: service_healthy
       notifications-service:
         condition: service_started
-        
+      issue-service:
+        condition: service_started
+
   notifications-service:
     build: ./services/notifications-service
     ports:
       - "8007:8000"
+    environment:
+      POSTGRES_USER: sjira
+      POSTGRES_PASSWORD: sjira
+      POSTGRES_DB: sjira_notifications
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      DATABASE_URL: postgresql+asyncpg://sjira:sjira@postgres:5432/sjira_notifications
     volumes:
       - ./services/notifications-service:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 volumes:
   postgres_data:

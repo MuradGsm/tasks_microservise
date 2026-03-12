@@ -23,7 +23,8 @@ async def handle_issue_created(event: IssueCreatedEvent) -> None:
         )
 
 
-async def handle_issue_status_changed(event: IssueStatusChangedEvent):
+async def handle_issue_status_changed(event: IssueStatusChangedEvent) -> None:
+    print("Handling issue_status_changed:", event.model_dump())
 
     recipients, notification = await route_issue_status_changed(event)
 
