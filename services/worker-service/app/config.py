@@ -10,6 +10,9 @@ class Settings(BaseSettings):
 
     NOTIFICATIONS_URL: str = "http://notifications-service:8000"
     ISSUE_URL: str = "http://issue-service:8000"
+
+    NOTIFICATION_RETRY_ATTEMPTS: int = 3
+    NOTIFICATION_RETRY_DELAY_SECONDS: float = 1.0
     
     model_config = SettingsConfigDict(
         env_file=".env",

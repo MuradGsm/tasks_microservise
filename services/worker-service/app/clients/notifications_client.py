@@ -1,22 +1,26 @@
 import httpx
+
 from app.config import settings
 
-ISSUE_TIMEOUT = 3.0
+NOTIFICATIONS_TIMEOUT = 3.0
 
 
-async def get_issue(issue_id: int) -> dict:
-    url = f"{settings.ISSUE_URL.rstrip('/')}/internal/issues/{issue_id}"
+async def push_notification(user_id: int, payload: dict) -> None:
+    url = f"{settings.NOTIFICATIONS_URL.rstrip('/')}/internal/notifications/push"
+
+    body = {
+        "user_id": user_id,
+        "payload": payload,
+    }
 
     try:
-        async with httpx.AsyncClient(timeout=ISSUE_TIMEOUT) as client:
-            response = await client.get(url)
+        async with httpx.AsyncClient(timeout=NOTIFICATIONS_TIMEOUT) as client:
+            response = await client.post(url, json=body)
 
         if response.status_code != 200:
             raise RuntimeError(
-                f"Issue service error: {response.status_code} {response.text}"
+                f"Notifications service error: {response.status_code} {response.text}"
             )
 
-        return response.json()
-
     except httpx.RequestError as e:
-        raise RuntimeError(f"Issue service unavailable: {e}")
+        raise RuntimeError(f"Notifications service unavailable: {e}")

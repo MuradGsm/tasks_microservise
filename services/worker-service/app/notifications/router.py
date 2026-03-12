@@ -45,22 +45,19 @@ def build_comment_added_notification(event: CommentAddedEvent) -> NotificationPa
     )
 
 
-def route_issue_created(event: IssueCreatedEvent) -> tuple[list[int], NotificationPayload]:
-    recipients = resolve_issue_created_recipients(event)
+async def route_issue_created(event: IssueCreatedEvent):
+    recipients = await resolve_issue_created_recipients(event)
     notification = build_issue_created_notification(event)
     return recipients, notification
 
 
 async def route_issue_status_changed(event: IssueStatusChangedEvent):
-
     recipients = await resolve_issue_status_changed_recipients(event)
-
     notification = build_issue_status_changed_notification(event)
-
     return recipients, notification
 
 
-def route_comment_added(event: CommentAddedEvent) -> tuple[list[int], NotificationPayload]:
-    recipients = resolve_comment_added_recipients(event)
+async def route_comment_added(event: CommentAddedEvent):
+    recipients = await resolve_comment_added_recipients(event)
     notification = build_comment_added_notification(event)
     return recipients, notification

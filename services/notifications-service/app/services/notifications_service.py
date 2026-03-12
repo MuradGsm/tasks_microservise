@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,7 +12,25 @@ class NotificationsService:
     async def create_notification(
         data: NotificationCreate,
         session: AsyncSession,
-    ) -> Notification:
+    ) -> tuple[Notification, bool]:
+        dedup_since = datetime.now(timezone.utc) - timedelta(minutes=5)
+
+        stmt = select(Notification).where(
+            Notification.user_id == data.user_id,
+            Notification.type == data.type,
+            Notification.entity_type == data.entity_type,
+            Notification.entity_id == data.entity_id,
+            Notification.project_id == data.project_id,
+            Notification.is_read.is_(False),
+            Notification.created_at >= dedup_since,
+        ).order_by(Notification.created_at.desc(), Notification.id.desc())
+
+        result = await session.execute(stmt)
+        existing = result.scalar_one_or_none()
+
+        if existing is not None:
+            return existing, False
+
         notification = Notification(
             user_id=data.user_id,
             type=data.type,
@@ -26,7 +46,7 @@ class NotificationsService:
         await session.commit()
         await session.refresh(notification)
 
-        return notification
+        return notification, True
 
     @staticmethod
     async def list_notifications(
