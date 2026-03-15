@@ -4,8 +4,14 @@ from sqlalchemy import text
 
 from app.config.database import get_session, engine, Base
 from app.api.v1.router import router as v1_router
+from app.core.logging import setup_logging, get_logger
+from app.middleware.request_logging import RequestLoggingMiddleware
+
+setup_logging()
+logger = get_logger(__name__)
 
 app = FastAPI(title="SJira API Issue Service")
+logger.info("Issue service application initialized")
 
 @app.get("/health")
 async def health():
@@ -22,3 +28,4 @@ async def health_db(session: AsyncSession = Depends(get_session)):
 
 
 app.include_router(v1_router, prefix="/v1")
+app.add_middleware(RequestLoggingMiddleware)

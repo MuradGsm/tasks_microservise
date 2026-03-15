@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.session import get_session
+from app.db.database import get_session
 from app.managers.dependencies import manager
 from app.schemas.notification import NotificationCreate, NotificationPushRequest
 from app.services.notifications_service import NotificationsService

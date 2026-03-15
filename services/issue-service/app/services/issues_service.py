@@ -11,6 +11,10 @@ from app.services.access_issue import _validate_update, _get_issue_or_404, ALLOW
 from app.services.workflow import validate_status, asserts_transition_allowed, ALLOWED_STATUSES
 from app.services.history_utils import add_history
 from app.events.publisher import publish_event
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 def _to_out(issue: Issue, project_key: str) -> IssueOut:
     return IssueOut(
@@ -70,6 +74,15 @@ class IssuesService:
                 "project_id": issue.project_id,
                 "actor_id": user_id,
             }
+        )
+
+        logger.info(
+            "Issue created",
+            extra={
+                "issue_id": issue.id,
+                "project_id": issue.project_id,
+                "user_id": user_id,
+            },
         )
 
         return _to_out(issue, project_key)
@@ -146,12 +159,27 @@ class IssuesService:
         _validate_update(data)
 
         if "assignee_id" in data and data["assignee_id"] is not None:
-            print("DEBUG issue.project_id =", issue.project_id)
-            print("DEBUG assignee_id =", data["assignee_id"])
+            logger.info(
+                "Validating assignee access",
+                extra={
+                    "issue_id": issue.id,
+                    "project_id": issue.project_id,
+                    "user_id": user_id,
+                },
+            )
 
             has_access = await check_project_access(issue.project_id, data["assignee_id"])
 
-            print("DEBUG has_access =", has_access)
+            logger.info(
+                "Assignee access validation finished",
+                extra={
+                    "issue_id": issue.id,
+                    "project_id": issue.project_id,
+                    "user_id": user_id,
+                    "assignee_id": data["assignee_id"],
+                    "has_access": has_access,
+                },
+            )
 
             if not has_access:
                 raise HTTPException(
@@ -191,7 +219,16 @@ class IssuesService:
         await get_project_key(issue.project_id, user_id)
 
         issue.is_deleted = True
+
         await session.commit()
+        logger.info(
+            "Issue soft deleted",
+            extra={
+                "issue_id": issue.id,
+                "project_id": issue.project_id,
+                "user_id": user_id,
+            },
+        )
 
     @staticmethod
     async def transition(issue_id: int, payload: TransitionRequest, user_id: int, session: AsyncSession) -> TransitionResponse:
@@ -228,7 +265,16 @@ class IssuesService:
                 "new_status": to_status
             }
         )
-
+        logger.info(
+            "Issue status changed",
+            extra={
+                "issue_id": issue.id,
+                "project_id": issue.project_id,
+                "user_id": user_id,
+                "from_status": from_status,
+                "to_status": to_status,
+            },
+        )
         return TransitionResponse(
             issue_id=issue.id,
             from_status=from_status,
