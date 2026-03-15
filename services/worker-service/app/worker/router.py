@@ -1,5 +1,7 @@
 from pydantic import ValidationError
 
+from app.core.logging import get_logger
+from app.core.logging_utils import build_event_log_context
 from app.worker.handlers import (
     handle_comment_added,
     handle_issue_created,
@@ -12,6 +14,8 @@ from app.schemas.issue_handlers import (
     IssueCreatedEvent,
     IssueStatusChangedEvent
 )
+
+logger = get_logger(__name__)
 
 EVENT_SCHEMAS = {
     "issue_created": IssueCreatedEvent,
@@ -27,20 +31,46 @@ EVENT_HANDLERS = {
 
 async def route_event(event: dict) -> None:
     event_type = event.get("event_type")
+    event_context = build_event_log_context(event)
+
+    logger.info(
+        "Routing event",
+        extra=event_context
+    )
 
     schema = EVENT_SCHEMAS.get(event_type)
     handler = EVENT_HANDLERS.get(event_type)
 
     if not schema or not handler:
+        logger.warning(
+            "Unkown event type",
+            extra={
+                **event_context,
+                "routing_status": "unkown_event"
+            }
+        )
         await handle_unknown_event(event)
         return
     
     try:
         validated_event = schema.model_validate(event)
     except ValidationError as e:
-        print(f"Event validation failed for type={event_type}: {e}")
+        logger.error(
+            "Event validation failed",
+            extra={
+                **event_context,
+                "routing_status": "validation_failed",
+                "error": str(e),
+            },
+        )
         return
-
+    logger.info(
+    "Event validated successfully",
+    extra={
+        **event_context,
+        "routing_status": "validated",
+    },
+    )
     await handler(validated_event)
 
     
