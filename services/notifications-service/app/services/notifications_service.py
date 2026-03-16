@@ -3,8 +3,11 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logging import get_logger
 from app.models.notification import Notification
 from app.schemas.notification import NotificationCreate
+
+logger = get_logger("app.services.notifications_service")
 
 
 class NotificationsService:
@@ -29,6 +32,17 @@ class NotificationsService:
         existing = result.scalar_one_or_none()
 
         if existing is not None:
+            logger.info(
+                "Notification deduplicated",
+                extra={
+                    "user_id": data.user_id,
+                    "notification_id": existing.id,
+                    "project_id": data.project_id,
+                    "entity_id": data.entity_id,
+                    "entity_type": data.entity_type,
+                    "created": False,
+                },
+            )
             return existing, False
 
         notification = Notification(
@@ -45,6 +59,19 @@ class NotificationsService:
         session.add(notification)
         await session.commit()
         await session.refresh(notification)
+
+        logger.info(
+            "Notification persisted",
+            extra={
+                "user_id": notification.user_id,
+                "notification_id": notification.id,
+                "project_id": notification.project_id,
+                "entity_id": notification.entity_id,
+                "entity_type": notification.entity_type,
+                "created": True,
+                "is_read": notification.is_read,
+            },
+        )
 
         return notification, True
 
@@ -72,6 +99,13 @@ class NotificationsService:
         result = await session.execute(stmt)
         items = result.scalars().all()
 
+        logger.info(
+            "Notifications listed",
+            extra={
+                "user_id": user_id,
+            },
+        )
+
         return list(items), total
 
     @staticmethod
@@ -81,7 +115,16 @@ class NotificationsService:
             Notification.is_read.is_(False),
         )
         count = await session.scalar(stmt)
-        return count or 0
+        count = count or 0
+
+        logger.info(
+            "Unread notifications counted",
+            extra={
+                "user_id": user_id,
+            },
+        )
+
+        return count
 
     @staticmethod
     async def mark_as_read(
@@ -97,12 +140,28 @@ class NotificationsService:
         notification = result.scalar_one_or_none()
 
         if notification is None:
+            logger.info(
+                "Notification not found for mark_as_read",
+                extra={
+                    "user_id": user_id,
+                    "notification_id": notification_id,
+                },
+            )
             return None
 
         if not notification.is_read:
             notification.is_read = True
             await session.commit()
             await session.refresh(notification)
+
+            logger.info(
+                "Notification marked as read",
+                extra={
+                    "user_id": user_id,
+                    "notification_id": notification.id,
+                    "is_read": notification.is_read,
+                },
+            )
 
         return notification
 
@@ -123,4 +182,13 @@ class NotificationsService:
         result = await session.execute(stmt)
         await session.commit()
 
-        return result.rowcount or 0
+        updated = result.rowcount or 0
+
+        logger.info(
+            "All notifications marked as read",
+            extra={
+                "user_id": user_id,
+            },
+        )
+
+        return updated
