@@ -5,7 +5,27 @@ from sqlalchemy import text
 from app.config.database import get_session
 from app.api.v1.router import router as project_router
 
+from app.core.logging import setup_logging, get_logger
+from app.middleware.logging import LoggingMiddleware
+
+
+setup_logging()
+
+logger = get_logger("app.main")
+
 app = FastAPI(title="SJira API Project Service")
+
+app.add_middleware(LoggingMiddleware)
+
+
+@app.on_event("startup")
+async def startup():
+    logger.info("Project service started")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    logger.info("Project service stopped")
 
 
 @app.get("/health")
