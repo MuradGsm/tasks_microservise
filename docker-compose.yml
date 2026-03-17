@@ -25,6 +25,29 @@ services:
       timeout: 3s
       retries: 20
 
+  loki:
+    image: grafana/loki:3.6.0
+    user: "0:0"
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/loki-config.yaml
+    volumes:
+      - ./observability/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/tmp/loki
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - loki
+
   identity-service:
     build: ./services/identity-service
     ports:
@@ -39,6 +62,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-external-labels: "service=identity-service,project=sjira"
+        loki-retries: "5"
+        loki-batch-size: "400"
 
   project-service:
     build: ./services/project-service
@@ -55,6 +85,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-external-labels: "service=project-service,project=sjira"
+        loki-retries: "5"
+        loki-batch-size: "400"
 
   issue-service:
     build: ./services/issue-service
@@ -76,6 +113,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-external-labels: "service=issue-service,project=sjira"
+        loki-retries: "5"
+        loki-batch-size: "400"
 
   api-gateway:
     build: ./services/api-gateway
@@ -99,6 +143,13 @@ services:
         condition: service_started
       notifications-service:
         condition: service_started
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-external-labels: "service=api-gateway,project=sjira"
+        loki-retries: "5"
+        loki-batch-size: "400"
 
   worker-service:
     build: ./services/worker-service
@@ -118,6 +169,13 @@ services:
         condition: service_started
       issue-service:
         condition: service_started
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-external-labels: "service=worker-service,project=sjira"
+        loki-retries: "5"
+        loki-batch-size: "400"
 
   notifications-service:
     build: ./services/notifications-service
@@ -135,6 +193,15 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    logging:
+      driver: loki
+      options:
+        loki-url: "http://localhost:3100/loki/api/v1/push"
+        loki-external-labels: "service=notifications-service,project=sjira"
+        loki-retries: "5"
+        loki-batch-size: "400"
 
 volumes:
   postgres_data:
+  grafana_data:
+  loki_data:
