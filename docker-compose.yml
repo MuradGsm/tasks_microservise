@@ -208,8 +208,10 @@ services:
       - "9090:9090"
     volumes:
       - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/rules:/etc/prometheus/rules:ro
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
+      
 
 volumes:
   postgres_data:

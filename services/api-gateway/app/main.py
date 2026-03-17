@@ -10,6 +10,11 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.core.logging import get_logger, setup_logging
 from app.core.request_context import set_request_id
+from app.core.metrics import (
+    http_requests_custom_total, 
+    auth_failures_total, 
+    upstream_requests_total
+)
 
 setup_logging()
 logger = get_logger("app.main")
@@ -67,6 +72,10 @@ async def logging_and_auth_middleware(request: Request, call_next):
                         "method": request.method,
                     },
                 )
+                auth_failures_total.labels(
+                    reason="missing_bearer",
+                    path=request.url.path,
+                ).inc()
                 response = JSONResponse(
                     {"detail": "Missing Bearer token"},
                     status_code=401,
@@ -101,6 +110,10 @@ async def logging_and_auth_middleware(request: Request, call_next):
                             "upstream_service": "identity-service",
                         },
                     )
+                    auth_failures_total.labels(
+                        reason="identity_unavailable",
+                        path=request.url.path,
+                    ).inc()
                     response = JSONResponse(
                         {"detail": "Identity service unavailable"},
                         status_code=503,
@@ -126,6 +139,10 @@ async def logging_and_auth_middleware(request: Request, call_next):
                                 "upstream_status": identity_resp.status_code,
                             },
                         )
+                        auth_failures_total.labels(
+                            reason="invalid_token",
+                            path=request.url.path,
+                        ).inc()
                         response = JSONResponse(
                             {
                                 "detail": "Invalid token",
@@ -147,6 +164,10 @@ async def logging_and_auth_middleware(request: Request, call_next):
                                     "upstream_service": "identity-service",
                                 },
                             )
+                            auth_failures_total.labels(
+                                reason="missing_user_id",
+                                path=request.url.path,
+                            ).inc()
                             response = JSONResponse(
                                 {"detail": "Identity response missing user id"},
                                 status_code=500,
@@ -190,6 +211,11 @@ async def logging_and_auth_middleware(request: Request, call_next):
             "duration_ms": duration_ms,
         },
     )
+    http_requests_custom_total.labels(
+        method=request.method,
+        path=request.url.path,
+        status=str(response.status_code),
+    ).inc()
 
     return response
 
@@ -275,6 +301,10 @@ async def proxy_request(
                 "upstream_service": upstream_service,
             },
         )
+        upstream_requests_total.labels(
+            service=upstream_service,
+            status="error"
+        ).inc()
         return JSONResponse(
             {"detail": f"{upstream_service} unavailable"},
             status_code=503,
@@ -290,6 +320,11 @@ async def proxy_request(
             "upstream_status": upstream_resp.status_code,
         },
     )
+
+    upstream_requests_total.labels(
+        service=upstream_service,
+        status=str(upstream_resp.status_code)
+    ).inc()
 
     response = Response(
         content=upstream_resp.content,

@@ -1,0 +1,32 @@
+groups:
+  - name: api-gateway-alerts
+    rules:
+      - alert: ApiGatewayHigh5xxRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[1m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: api-gateway
+        annotations:
+          summary: "API Gateway returns 5xx"
+          description: "API Gateway has 5xx responses for more than 1 minute."
+
+      - alert: ApiGatewayHighAuthFailures
+        expr: sum(rate(sjira_auth_failures_total[1m])) > 0
+        for: 1m
+        labels:
+          severity: warning
+          service: api-gateway
+        annotations:
+          summary: "High authentication failures"
+          description: "Authentication failures detected in API Gateway."
+
+      - alert: ApiGatewayUpstreamErrors
+        expr: sum(rate(sjira_upstream_requests_total{status="error"}[1m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: api-gateway
+        annotations:
+          summary: "Upstream service unavailable"
+          description: "API Gateway cannot reach one of the upstream services."
