@@ -1,9 +1,17 @@
+import os
+import time
+import uuid
+
+import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-import uuid
-import os
-import httpx
+
+from app.core.logging import get_logger, setup_logging
+from app.core.request_context import set_request_id
+
+setup_logging()
+logger = get_logger("app.main")
 
 app = FastAPI(title="SJira API Gateway")
 
@@ -12,56 +20,174 @@ PROJECT_URL = os.getenv("PROJECT_URL", "http://project-service:8000")
 ISSUE_URL = os.getenv("ISSUE_URL", "http://issue-service:8000")
 NOTIFICATIONS_URL = os.getenv("NOTIFICATIONS_URL", "http://notifications-service:8000")
 
-# 1) Request-ID всегда добавляем первым
-@app.middleware("http")
-async def add_request_id(request: Request, call_next):
-    request_id = str(uuid.uuid4())
-    response = await call_next(request)
-    response.headers["X-Request-ID"] = request_id
-    return response
 
-
-# 2) Auth middleware
-@app.middleware("http")
-async def auth_middleware(request: Request, call_next):
-    public_paths = {"/health", "/public/ping"}
-    if request.url.path in public_paths:
-        return await call_next(request)
-
+def is_public_path(path: str) -> bool:
+    public_paths = {
+        "/health",
+        "/public/ping",
+        "/auth/token/",
+        "/auth/token/refresh/",
+    }
     public_prefixes = ("/docs", "/openapi.json", "/redoc")
-    if request.url.path in public_paths or request.url.path.startswith(public_prefixes):
-        return await call_next(request)
+    return path in public_paths or path.startswith(public_prefixes)
 
-    auth_header = request.headers.get("authorization", "")
-    if not auth_header.lower().startswith("bearer "):
-        return JSONResponse({"detail": "Missing Bearer token"}, status_code=401)
 
-    token = auth_header.split(" ", 1)[1].strip()
+@app.middleware("http")
+async def logging_and_auth_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-Id") or str(uuid.uuid4())
+    set_request_id(request_id)
+    request.state.request_id = request_id
+
+    start_time = time.time()
+
+    logger.info(
+        "HTTP request started",
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+        },
+    )
+
+    response: Response | JSONResponse
 
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(
-                f"{IDENTITY_URL}/auth/me/",
-                headers={"Authorization": f"Bearer {token}"},
-            )
-    except httpx.RequestError:
-        return JSONResponse({"detail": "Identity service unavailable"}, status_code=503)
+        if is_public_path(request.url.path):
+            response = await call_next(request)
+        else:
+            auth_header = request.headers.get("authorization", "")
+            if not auth_header.lower().startswith("bearer "):
+                logger.warning(
+                    "Authentication failed: missing bearer token",
+                    extra={
+                        "path": request.url.path,
+                        "method": request.method,
+                    },
+                )
+                response = JSONResponse(
+                    {"detail": "Missing Bearer token"},
+                    status_code=401,
+                )
+            else:
+                token = auth_header.split(" ", 1)[1].strip()
 
-    if resp.status_code != 200:
-        # отладка: покажем, что вернул identity
-        return JSONResponse(
-            {"detail": "Invalid token", "identity_status": resp.status_code, "identity_body": resp.text},
-            status_code=401,
+                logger.info(
+                    "Token validation requested",
+                    extra={
+                        "path": request.url.path,
+                        "method": request.method,
+                        "upstream_service": "identity-service",
+                    },
+                )
+
+                try:
+                    async with httpx.AsyncClient(timeout=5.0) as client:
+                        identity_resp = await client.get(
+                            f"{IDENTITY_URL}/auth/me/",
+                            headers={
+                                "Authorization": f"Bearer {token}",
+                                "X-Request-Id": request_id,
+                            },
+                        )
+                except httpx.RequestError:
+                    logger.exception(
+                        "Identity service unavailable",
+                        extra={
+                            "path": request.url.path,
+                            "method": request.method,
+                            "upstream_service": "identity-service",
+                        },
+                    )
+                    response = JSONResponse(
+                        {"detail": "Identity service unavailable"},
+                        status_code=503,
+                    )
+                else:
+                    logger.info(
+                        "Token validation response received",
+                        extra={
+                            "path": request.url.path,
+                            "method": request.method,
+                            "upstream_service": "identity-service",
+                            "upstream_status": identity_resp.status_code,
+                        },
+                    )
+
+                    if identity_resp.status_code != 200:
+                        logger.warning(
+                            "Authentication failed: invalid token",
+                            extra={
+                                "path": request.url.path,
+                                "method": request.method,
+                                "upstream_service": "identity-service",
+                                "upstream_status": identity_resp.status_code,
+                            },
+                        )
+                        response = JSONResponse(
+                            {
+                                "detail": "Invalid token",
+                                "identity_status": identity_resp.status_code,
+                                "identity_body": identity_resp.text,
+                            },
+                            status_code=401,
+                        )
+                    else:
+                        data = identity_resp.json()
+                        user_id = data.get("id") or data.get("user_id")
+
+                        if user_id is None:
+                            logger.error(
+                                "Identity response missing user id",
+                                extra={
+                                    "path": request.url.path,
+                                    "method": request.method,
+                                    "upstream_service": "identity-service",
+                                },
+                            )
+                            response = JSONResponse(
+                                {"detail": "Identity response missing user id"},
+                                status_code=500,
+                            )
+                        else:
+                            request.state.user_id = str(user_id)
+
+                            logger.info(
+                                "Authentication succeeded",
+                                extra={
+                                    "path": request.url.path,
+                                    "method": request.method,
+                                    "user_id": int(user_id),
+                                },
+                            )
+
+                            response = await call_next(request)
+
+    except Exception:
+        duration_ms = int((time.time() - start_time) * 1000)
+        logger.exception(
+            "HTTP request failed",
+            extra={
+                "path": request.url.path,
+                "method": request.method,
+                "duration_ms": duration_ms,
+            },
         )
+        raise
 
-    data = resp.json()
-    user_id = data.get("id") or data.get("user_id")
-    if user_id is None:
-        return JSONResponse({"detail": "Identity response missing user id"}, status_code=500)
+    duration_ms = int((time.time() - start_time) * 1000)
 
-    request.state.user_id = str(user_id)
+    response.headers["X-Request-Id"] = request_id
 
-    return await call_next(request)
+    logger.info(
+        "HTTP request completed",
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+        },
+    )
+
+    return response
 
 
 app.add_middleware(
@@ -72,100 +198,147 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.on_event("startup")
+async def startup():
+    logger.info("API gateway started")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    logger.info("API gateway stopped")
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "api-gateway"}
+
 
 @app.get("/public/ping")
 async def public_ping():
     return {"pong": "public"}
 
+
 @app.get("/private/ping")
-async def private_ping():
-    return {"pong": "private"}
+async def private_ping(request: Request):
+    return {
+        "pong": "private",
+        "user_id": getattr(request.state, "user_id", None),
+    }
 
-@app.api_route('/projects/{path:path}', methods=['GET','POST', 'PUT', "PATCH", "DELETE"])
-async def proxy_projects(request: Request, path: str):
-    upstream_url = f'{PROJECT_URL}/{path}'
 
+async def proxy_request(
+    request: Request,
+    upstream_url: str,
+    *,
+    upstream_service: str,
+) -> Response:
     body = await request.body()
 
     headers = {}
+    if request.headers.get("content-type"):
+        headers["content-type"] = request.headers["content-type"]
 
-    if request.headers.get('content-type'):
-        headers['content-type'] = request.headers['content-type']
-    
-    headers['X-User-Id'] = getattr(request.state, 'user_id', '')
+    headers["X-User-Id"] = getattr(request.state, "user_id", "")
+    headers["X-Request-Id"] = getattr(request.state, "request_id", "")
 
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        upstream_resp = await client.request(
-            method=request.method,
-            url=upstream_url,
-            params=request.query_params,
-            content=body,
-            headers=headers,
+    logger.info(
+        "Upstream request started",
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+            "user_id": int(request.state.user_id) if hasattr(request.state, "user_id") else None,
+            "upstream_service": upstream_service,
+        },
+    )
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            upstream_resp = await client.request(
+                method=request.method,
+                url=upstream_url,
+                params=request.query_params,
+                content=body,
+                headers=headers,
+            )
+    except httpx.RequestError:
+        logger.exception(
+            "Upstream request failed",
+            extra={
+                "path": request.url.path,
+                "method": request.method,
+                "user_id": int(request.state.user_id),
+                "upstream_service": upstream_service,
+            },
+        )
+        return JSONResponse(
+            {"detail": f"{upstream_service} unavailable"},
+            status_code=503,
         )
 
-    return Response(
+    logger.info(
+        "Upstream response received",
+        extra={
+            "path": request.url.path,
+            "method": request.method,
+            "user_id": int(request.state.user_id),
+            "upstream_service": upstream_service,
+            "upstream_status": upstream_resp.status_code,
+        },
+    )
+
+    response = Response(
         content=upstream_resp.content,
         status_code=upstream_resp.status_code,
-        media_type=upstream_resp.headers.get("content-type")
+        media_type=upstream_resp.headers.get("content-type"),
     )
+    response.headers["X-Request-Id"] = getattr(request.state, "request_id", "")
+    return response
+
+
+@app.api_route("/projects/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
+async def proxy_projects(request: Request, path: str):
+    upstream_url = f"{PROJECT_URL}/v1/projects/{path}"
+    return await proxy_request(
+        request,
+        upstream_url,
+        upstream_service="project-service",
+    )
+
 
 @app.get("/private/whoami")
 async def whoami(request: Request):
     return {"user_id": getattr(request.state, "user_id", None)}
 
 
-@app.api_route("/issues/{path:path}", methods=["GET","POST","PUT","PATCH","DELETE"])
+@app.api_route("/issues/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def proxy_issues(request: Request, path: str):
-    upstream_url = f"{ISSUE_URL}/{path}"
-    body = await request.body()
-    headers = {}
-    if request.headers.get("content-type"):
-        headers["content-type"] = request.headers["content-type"]
-    headers["X-User-Id"] = getattr(request.state, "user_id", "")
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        upstream_resp = await client.request(
-            method=request.method,
-            url=upstream_url,
-            params=request.query_params,
-            content=body,
-            headers=headers,
-        )
-    return Response(
-        content=upstream_resp.content,
-        status_code=upstream_resp.status_code,
-        media_type=upstream_resp.headers.get("content-type"),
+    upstream_url = f"{ISSUE_URL}/v1/issues/{path}"
+    return await proxy_request(
+        request,
+        upstream_url,
+        upstream_service="issue-service",
     )
+
 
 @app.api_route("/notifications", methods=["GET"])
 @app.api_route("/notifications/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def proxy_notifications(request: Request, path: str = ""):
     upstream_url = f"{NOTIFICATIONS_URL}/v1/notifications"
-
     if path:
         upstream_url = f"{upstream_url}/{path}"
 
-    body = await request.body()
+    return await proxy_request(
+        request,
+        upstream_url,
+        upstream_service="notifications-service",
+    )
 
-    headers = {}
-    if request.headers.get("content-type"):
-        headers["content-type"] = request.headers["content-type"]
-
-    headers["X-User-Id"] = getattr(request.state, "user_id", "")
-
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        upstream_resp = await client.request(
-            method=request.method,
-            url=upstream_url,
-            params=request.query_params,
-            content=body,
-            headers=headers,
-        )
-
-    return Response(
-        content=upstream_resp.content,
-        status_code=upstream_resp.status_code,
-        media_type=upstream_resp.headers.get("content-type"),
+@app.api_route("/auth/{path:path}", methods=["GET", "POST"])
+async def proxy_auth(request: Request, path: str):
+    upstream_url = f"{IDENTITY_URL}/auth/{path}"
+    return await proxy_request(
+        request,
+        upstream_url,
+        upstream_service="identity-service",
     )
