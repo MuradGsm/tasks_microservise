@@ -6,6 +6,7 @@ import httpx
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.core.logging import get_logger, setup_logging
 from app.core.request_context import set_request_id
@@ -14,6 +15,8 @@ setup_logging()
 logger = get_logger("app.main")
 
 app = FastAPI(title="SJira API Gateway")
+Instrumentator().instrument(app).expose(app)
+
 
 IDENTITY_URL = os.getenv("IDENTITY_URL", "http://identity-service:8000")
 PROJECT_URL = os.getenv("PROJECT_URL", "http://project-service:8000")
@@ -24,6 +27,7 @@ NOTIFICATIONS_URL = os.getenv("NOTIFICATIONS_URL", "http://notifications-service
 def is_public_path(path: str) -> bool:
     public_paths = {
         "/health",
+        "/metrics",
         "/public/ping",
         "/auth/token/",
         "/auth/token/refresh/",
