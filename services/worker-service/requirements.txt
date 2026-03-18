@@ -4,3 +4,5 @@ pydantic-settings==2.5.2
 pydantic
 redis==5.0.8
 httpx
+prometheus-client==0.21.0
+prometheus-fastapi-instrumentator==7.0.0

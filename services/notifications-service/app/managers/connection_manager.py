@@ -3,6 +3,10 @@ from collections import defaultdict
 from fastapi import WebSocket
 
 from app.core.logging import get_logger
+from app.core.metrics import (
+    websocket_active_connections,
+    websocket_messages_sent_total,
+)
 
 logger = get_logger("app.managers.connection_manager")
 
@@ -14,6 +18,7 @@ class ConnectionManager:
     async def connect(self, user_id: int, websocket: WebSocket) -> None:
         await websocket.accept()
         self.active_connections[user_id].append(websocket)
+        websocket_active_connections.inc()
 
         logger.info(
             "WebSocket user connected",
@@ -28,6 +33,7 @@ class ConnectionManager:
 
         if websocket in connections:
             connections.remove(websocket)
+            websocket_active_connections.dec()
 
         if not connections and user_id in self.active_connections:
             del self.active_connections[user_id]
@@ -56,10 +62,15 @@ class ConnectionManager:
             return
 
         dead_connections: list[WebSocket] = []
+        notification_type = payload.get("type", "unknown")
 
         for websocket in connections:
             try:
                 await websocket.send_json(payload)
+                websocket_messages_sent_total.labels(
+                    type=notification_type
+                ).inc()
+
                 logger.info(
                     "Notification delivered realtime",
                     extra={

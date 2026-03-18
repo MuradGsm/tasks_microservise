@@ -4,6 +4,7 @@ from typing import Any
 from app.clients.notifications_client import push_notification
 from app.config import settings
 from app.core.logging import get_logger
+from app.core.metrics import notifications_sent_total
 
 logger = get_logger(__name__)
 
@@ -18,6 +19,7 @@ async def send_notification_with_retry(
     context = event_context or {}
 
     last_error: Exception | None = None
+    event_type = context.get("event_type", "unknown")
 
     for attempt in range(1, attempts + 1):
         try:
@@ -32,6 +34,8 @@ async def send_notification_with_retry(
             )
 
             await push_notification(user_id=user_id, payload=payload)
+
+            notifications_sent_total.labels(event_type=event_type).inc()
 
             logger.info(
                 "Notification delivered successfully",

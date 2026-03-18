@@ -1,60 +1,34 @@
-import time
-import uuid
+from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
 
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-from starlette.responses import Response
+from app.config import settings
+from app.core.logging import get_logger, setup_logging
+from app.middleware.logging import LoggingMiddleware
+from app.routes.health import router as health_router
+from app.routes.internal import router as internal_router
+from app.routes.notifications import router as notifications_router
+from app.routes.websocket import router as websocket_router
 
-from app.core.logging import get_logger
-from app.core.request_context import set_request_id
+setup_logging()
+logger = get_logger("app.main")
 
-logger = get_logger("app.middleware.logging")
+app = FastAPI(title=settings.APP_NAME)
+
+app.add_middleware(LoggingMiddleware)
+
+app.include_router(health_router)
+app.include_router(websocket_router)
+app.include_router(internal_router)
+app.include_router(notifications_router)
+
+Instrumentator().instrument(app).expose(app)
 
 
-class LoggingMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next) -> Response:
-        request_id = request.headers.get("X-Request-Id")
-        if request_id is None:
-            request_id = str(uuid.uuid4())
+@app.on_event("startup")
+async def startup_event() -> None:
+    logger.info("Notifications service application startup")
 
-        set_request_id(request_id)
 
-        start_time = time.perf_counter()
-
-        logger.info(
-            "HTTP request started",
-            extra={
-                "method": request.method,
-                "path": request.url.path,
-            },
-        )
-
-        try:
-            response = await call_next(request)
-        except Exception:
-            duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
-            logger.exception(
-                "HTTP request failed",
-                extra={
-                    "method": request.method,
-                    "path": request.url.path,
-                    "duration_ms": duration_ms,
-                },
-            )
-            raise
-
-        duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
-
-        response.headers["X-Request-Id"] = request_id
-
-        logger.info(
-            "HTTP request completed",
-            extra={
-                "method": request.method,
-                "path": request.url.path,
-                "status_code": response.status_code,
-                "duration_ms": duration_ms,
-            },
-        )
-
-        return response
+@app.on_event("shutdown")
+async def shutdown_event() -> None:
+    logger.info("Notifications service application shutdown")
