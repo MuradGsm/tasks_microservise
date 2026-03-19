@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.http import JsonResponse
-from django.urls import path
+from django.urls import path, include
 
 from accounts.jwt_views import LoggedTokenObtainPairView, LoggedTokenRefreshView
 from accounts.views import me
@@ -22,4 +22,6 @@ urlpatterns = [
     path("auth/token/refresh/", LoggedTokenRefreshView.as_view(), name="token_refresh"),
 
     path("auth/me/", me, name="me"),
+
+    path("", include("django_prometheus.urls")),
 ]

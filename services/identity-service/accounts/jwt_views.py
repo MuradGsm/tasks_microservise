@@ -3,6 +3,12 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from identity.logging import get_logger
+from identity.metrics import (
+    identity_login_success_total,
+    identity_login_failed_total,
+    identity_token_refresh_total,
+    identity_token_refresh_failed_total,
+)
 
 logger = get_logger("accounts.jwt_views")
 
@@ -23,6 +29,8 @@ class LoggedTokenObtainPairView(TokenObtainPairView):
         response = super().post(request, *args, **kwargs)
 
         if response.status_code == status.HTTP_200_OK:
+            identity_login_success_total.inc()
+
             logger.info(
                 "Token issued",
                 extra={
@@ -32,6 +40,8 @@ class LoggedTokenObtainPairView(TokenObtainPairView):
                 },
             )
         else:
+            identity_login_failed_total.inc()
+
             logger.warning(
                 "Token obtain failed",
                 extra={
@@ -58,6 +68,8 @@ class LoggedTokenRefreshView(TokenRefreshView):
         response = super().post(request, *args, **kwargs)
 
         if response.status_code == status.HTTP_200_OK:
+            identity_token_refresh_total.inc()
+
             logger.info(
                 "Token refreshed",
                 extra={
@@ -66,6 +78,8 @@ class LoggedTokenRefreshView(TokenRefreshView):
                 },
             )
         else:
+            identity_token_refresh_failed_total.inc()
+
             logger.warning(
                 "Token refresh failed",
                 extra={
@@ -75,4 +89,4 @@ class LoggedTokenRefreshView(TokenRefreshView):
                 },
             )
 
-        return response
+        return response 
