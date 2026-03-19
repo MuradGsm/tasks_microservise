@@ -7,3 +7,5 @@ alembic
 psycopg2-binary
 httpx
 redis==5.0.8
+prometheus-client
+prometheus-fastapi-instrumentator

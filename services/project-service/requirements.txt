@@ -8,3 +8,5 @@ psycopg2-binary
 pytest
 pytest-asyncio
 httpx
+prometheus-client
+prometheus-fastapi-instrumentator

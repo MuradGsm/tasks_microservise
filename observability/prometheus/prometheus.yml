@@ -16,3 +16,7 @@ scrape_configs:
   - job_name: "notifications-service"
     static_configs:
       - targets: ["notifications-service:8000"]
+
+  - job_name: "issue-service"
+    static_configs:
+      - targets: ["issue-service:8000"]

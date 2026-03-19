@@ -6,6 +6,7 @@ from app.schemas.comment import CommentCreate, CommentOut
 from app.services.project_key import get_project_key
 from app.services.access_issue import _get_issue_or_404
 from app.events.publisher import publish_event
+from app.core.metrics import comments_created_total
 
 def _to_out(c: IssueComment) -> CommentOut:
     return CommentOut(
@@ -29,6 +30,8 @@ class CommentService:
         session.add(comment)
         await session.commit()
         await session.refresh(comment)
+
+        comments_created_total.inc()
 
         await publish_event(
             {

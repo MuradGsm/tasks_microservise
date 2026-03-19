@@ -12,6 +12,7 @@ from app.services.workflow import validate_status, asserts_transition_allowed, A
 from app.services.history_utils import add_history
 from app.events.publisher import publish_event
 from app.core.logging import get_logger
+from app.core.metrics import status_changed_total
 
 logger = get_logger(__name__)
 
@@ -254,6 +255,11 @@ class IssuesService:
         await session.commit()
         await session.refresh(issue)
 
+        status_changed_total.labels(
+            from_status=from_status,
+            to_status=to_status,
+        ).inc()
+        
         await publish_event(
             {
 

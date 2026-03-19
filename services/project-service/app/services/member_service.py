@@ -6,6 +6,7 @@ from app.schemas.member import ProjectMemberCreate, ProjectMemberOut
 from app.services.project_service import get_project
 from app.models.project import ProjectMember, Project
 from app.core.logging import get_logger
+from app.core.metrics import projects_members_added_total
 
 logger = get_logger("app.services.member_service")
 
@@ -63,6 +64,7 @@ async def add_memeber(
     session.add(member)
     await session.commit()
     await session.refresh(member)
+    projects_members_added_total.inc()
 
     logger.info(
         "Project member added",

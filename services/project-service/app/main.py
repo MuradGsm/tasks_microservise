@@ -1,21 +1,20 @@
 from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.config.database import get_session
 from app.api.v1.router import router as project_router
-
 from app.core.logging import setup_logging, get_logger
 from app.middleware.logging import LoggingMiddleware
 
-
 setup_logging()
-
 logger = get_logger("app.main")
 
 app = FastAPI(title="SJira API Project Service")
 
 app.add_middleware(LoggingMiddleware)
+app.include_router(project_router, prefix="/v1")
 
 
 @app.on_event("startup")
@@ -45,4 +44,4 @@ async def health_db(session: AsyncSession = Depends(get_session)):
         )
 
 
-app.include_router(project_router, prefix="/v1")
+Instrumentator().instrument(app).expose(app)

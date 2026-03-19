@@ -5,6 +5,8 @@ from sqlalchemy.exc import IntegrityError
 
 from app.models.project import Project
 from app.core.logging import get_logger
+from app.core.metrics import projects_created_total, projects_updated_total
+
 
 logger = get_logger("app.services.project_service")
 
@@ -41,6 +43,8 @@ async def create_project(session: AsyncSession, *, key: str, name: str, owner_id
         )
 
     await session.refresh(project)
+
+    projects_created_total.inc()
 
     logger.info(
         "Project created",
@@ -108,6 +112,8 @@ async def update_project(session: AsyncSession, *, owner_id: int, project_id: in
 
     await session.commit()
     await session.refresh(project)
+
+    projects_updated_total.inc()
 
     logger.info(
         "Project updated",
