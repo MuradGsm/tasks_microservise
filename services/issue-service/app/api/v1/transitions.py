@@ -5,7 +5,7 @@ from app.config.database import get_session
 from app.schemas.transition import TransitionRequest, TransitionResponse
 from app.services.issues_service import IssuesService
 
-router = APIRouter(tags=['Worklof'])
+router = APIRouter(tags=['Workflow'])
 
 @router.post("/issues/{issue_id}/transitions", response_model=TransitionResponse)
 async def transition_issue(

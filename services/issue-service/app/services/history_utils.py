@@ -1,4 +1,5 @@
-from app.models.issue import IssueHistory
+from app.models.issue_models import IssueHistory
+from sqlalchemy.ext.asyncio import AsyncSession
 
 MAX_VALUE_LEN = 2000
 
@@ -10,7 +11,15 @@ def _to_str(v) -> str | None:
         s = s[:MAX_VALUE_LEN]+ "..."
     return s
 
-def add_history(*, issue_id: int, actor_id: int, field: str, old_value, new_value, session) -> None:
+def add_history(
+    *,
+    issue_id: int,
+    actor_id: int,
+    field: str,
+    old_value,
+    new_value,
+    session: AsyncSession,  
+    ) -> None:
     session.add(
         IssueHistory(
             issue_id=issue_id,

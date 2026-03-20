@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.issue import Issue
+from app.models.issue_models import Issue
 
 ALLOWED_TYPES = {"TASK", "BUG", "STORY"}
 

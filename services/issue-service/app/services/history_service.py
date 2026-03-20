@@ -1,11 +1,10 @@
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.issue import IssueHistory, Issue
+from app.models.issue_models import IssueHistory
 from app.schemas.history import HistoryOut
 from app.services.project_key import get_project_key
-from app.services.access_issue import _get_issue_or_404
+from app.services.issue_access import _get_issue_or_404
 
 def _to_out(h: IssueHistory) -> HistoryOut:
     return HistoryOut(

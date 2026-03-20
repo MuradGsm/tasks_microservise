@@ -2,18 +2,18 @@ import json
 
 import redis.asyncio as redis
 
-from app.config.config import setting
+from app.config.settings import settings
 from app.core.logging import get_logger
 from app.core.metrics import issue_events_published_total, issue_events_publish_failed_total
 
 logger = get_logger(__name__)
 
-redis_client =  redis.from_url(setting.REDIS_URL, decode_responses=True)
+redis_client =  redis.from_url(settings.REDIS_URL, decode_responses=True)
 
 
 async def publish_event(event: dict) -> None:
     payload = json.dumps(event)
-    event_type = event.get("event_type", "unkown")
+    event_type = event.get("event_type", "unknown")
 
 
     logger.info(
@@ -26,7 +26,7 @@ async def publish_event(event: dict) -> None:
     )
 
     try:
-        await redis_client.rpush(setting.EVENTS_QUEUE_NAME, payload)
+        await redis_client.rpush(settings.EVENTS_QUEUE_NAME, payload)
         issue_events_published_total.labels(event_type=event_type).inc()
 
         logger.info(
@@ -49,3 +49,14 @@ async def publish_event(event: dict) -> None:
             },
         )
         raise
+
+async def check_redis_health() -> bool:
+    try:
+        await redis_client.ping()
+        return True
+    except Exception:
+        logger.warning(
+            "Redis health check failed",
+            extra={"target_service": "redis"},
+        )
+        return False

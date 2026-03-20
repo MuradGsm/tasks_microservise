@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from typing import Optional
+from datetime import datetime
 
 class IssueCreate(BaseModel):
     title: str =Field(..., min_length=3, max_length=255)
@@ -13,9 +14,13 @@ class IssueOut(BaseModel):
     number: int
     key: str
     title: str
+    description: str | None
     status: str
     type: str
-    reporter_id: int 
+    reporter_id: int
+    assignee_id: int | None
+    created_at: datetime
+    updated_at: datetime
 
 
 class IssueUpdate(BaseModel):
