@@ -4,7 +4,7 @@ import re
 KEY_RE = re.compile(r"^[A-Z0-9_]{2,10}$")
 
 class ProjectCreate(BaseModel):
-    key: str = Field(..., min_length=2, max_length=20)
+    key: str = Field(..., min_length=2, max_length=10)
     name: str = Field(..., min_length=2, max_length=20)
 
     @field_validator("key")
@@ -32,7 +32,7 @@ class ProjectOut(BaseModel):
 
 
 class ProjectUpdate(BaseModel):
-    name: str = Field(..., min_length=2, max_length=20)
+    name: str = Field(..., min_length=2, max_length=10)
 
     @field_validator('name')
     @classmethod

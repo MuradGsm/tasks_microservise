@@ -4,6 +4,12 @@ global:
 rule_files:
   - /etc/prometheus/rules/api-gateway-alerts.yml
 
+rule_files:
+  - /etc/prometheus/rules/issue-service-alerts.yml
+
+rule_files:
+  - /etc/prometheus/rules/project-service-alerts.yml
+
 scrape_configs:
   - job_name: "api-gateway"
     static_configs:

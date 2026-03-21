@@ -5,8 +5,12 @@ from sqlalchemy.exc import IntegrityError
 
 from app.models.project import Project
 from app.core.logging import get_logger
-from app.core.metrics import projects_created_total, projects_updated_total
 
+from app.core.metrics import (
+    projects_created_total,
+    projects_updated_total,
+    projects_deleted_total,
+)
 
 logger = get_logger("app.services.project_service")
 
@@ -132,7 +136,7 @@ async def delete_project(session: AsyncSession, *, owner_id: int, project_id: in
 
     await session.delete(project)
     await session.commit()
-
+    projects_deleted_total.inc()
     logger.info(
         "Project deleted",
         extra={

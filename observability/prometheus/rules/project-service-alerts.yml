@@ -1,0 +1,41 @@
+groups:
+  - name: project-service-alerts
+    rules:
+      - alert: ProjectServiceDown
+        expr: up{job="project-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: project-service
+        annotations:
+          summary: "project-service is down"
+          description: "Prometheus cannot scrape project-service for 1 minute."
+
+      - alert: ProjectServiceHigh5xxRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="project-service", status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="project-service"}[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: project-service
+        annotations:
+          summary: "High 5xx error rate in project-service"
+          description: "More than 5% of requests returned 5xx during the last 5 minutes."
+
+      - alert: ProjectServiceHighLatencyP95
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="project-service"}[5m])) by (le)
+          ) > 0.8
+        for: 5m
+        labels:
+          severity: warning
+          service: project-service
+        annotations:
+          summary: "High p95 latency in project-service"
+          description: "p95 latency is above 800ms for 5 minutes."

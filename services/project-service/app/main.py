@@ -27,6 +27,7 @@ async def shutdown():
     logger.info("Project service stopped")
 
 
+
 @app.get("/health")
 async def health():
     return {"status": "ok", "service": "project-service"}
@@ -36,12 +37,23 @@ async def health():
 async def health_db(session: AsyncSession = Depends(get_session)):
     try:
         await session.execute(text("SELECT 1"))
-        return {"status": "ok", "service": "project-service DB"}
+        return {"status": "ok", "service": "project-service"}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"DB error: {e}",
         )
 
+
+@app.get("/readiness")
+async def readiness(session: AsyncSession = Depends(get_session)):
+    try:
+        await session.execute(text("SELECT 1"))
+        return {"status": "ready", "service": "project-service"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Readiness check failed: {e}",
+        )
 
 Instrumentator().instrument(app).expose(app)

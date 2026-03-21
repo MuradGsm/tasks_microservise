@@ -8,13 +8,13 @@ from app.services import member_service
 router = APIRouter()
 
 @router.post('/{project_id}/members')
-async def create_memeber(
+async def create_member(
     project_id: int, 
     payload: ProjectMemberCreate,
     x_user_id: int = Header(..., alias='X-User-Id'),
     session: AsyncSession = Depends(get_session)
 ):
-    member = await member_service.add_memeber(session, project_id=project_id, owner_id=x_user_id, payload=payload)
+    member = await member_service.add_member(session, project_id=project_id, owner_id=x_user_id, payload=payload)
 
     return ProjectMemberOut(
         id = member.id,
@@ -29,7 +29,7 @@ async def list_members(
     x_user_id: int = Header(..., alias='X-User-Id'),
     session: AsyncSession = Depends(get_session)
 ):
-    members = await member_service.list_member(session, project_id=project_id, owner_id=x_user_id)
+    members = await member_service.list_members(session, project_id=project_id, owner_id=x_user_id)
 
     return [
         ProjectMemberOut(
@@ -42,13 +42,13 @@ async def list_members(
 
 
 @router.delete('/{project_id}/members/{member_id}', status_code=204)
-async def delete_memeber(
+async def delete_member(
     project_id: int,
     member_id: int,
     x_user_id: int = Header(..., alias="X-User-Id"),
     session: AsyncSession = Depends(get_session),
 ):
-    await member_service.delete_memeber(
+    await member_service.delete_member(
         session,
         project_id=project_id,
         member_id=member_id,
