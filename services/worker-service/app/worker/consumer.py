@@ -1,3 +1,4 @@
+import asyncio
 import json
 import time
 
@@ -18,10 +19,7 @@ logger = get_logger(__name__)
 async def start_event_consumer() -> None:
     queue = settings.EVENTS_QUEUE_NAME
 
-    logger.info(
-        "Worker consumer started",
-        extra={"queue": queue},
-    )
+    logger.info("Worker consumer started", extra={"queue": queue})
 
     while True:
         raw_payload = None
@@ -48,7 +46,6 @@ async def start_event_consumer() -> None:
             )
 
             started = time.perf_counter()
-
             await route_event(event)
 
             duration = time.perf_counter() - started
@@ -65,16 +62,23 @@ async def start_event_consumer() -> None:
                 },
             )
 
-        except json.JSONDecodeError as e:
+        except asyncio.CancelledError:
+            logger.info(
+                "Worker consumer cancellation received",
+                extra={"queue": queue},
+            )
+            raise
+
+        except json.JSONDecodeError as exc:
             logger.error(
                 "Invalid JSON event payload",
                 extra={
                     "queue": queue,
-                    "error": str(e),
+                    "error": str(exc),
                 },
             )
 
-        except Exception as e:
+        except Exception as exc:
             events_failed_total.labels(event_type=event_type).inc()
 
             if started is not None:
@@ -87,7 +91,7 @@ async def start_event_consumer() -> None:
                 "Worker error while processing event",
                 extra={
                     "queue": queue,
-                    "error": str(e),
+                    "error": str(exc),
                     **event_context,
                 },
             )

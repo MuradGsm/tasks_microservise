@@ -1,7 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
-    APP_NAME: str = "worker_service"
+    APP_NAME: str = "worker-service"
     APP_HOST: str = "0.0.0.0"
     APP_PORT: int = 8000
 
