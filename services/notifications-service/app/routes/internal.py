@@ -32,16 +32,7 @@ async def push_notification(
             "Push notification request received",
             extra={
                 "user_id": request.user_id,
-                "project_id": request.payload.project_id,
-                "entity_id": request.payload.entity_id,
-                "entity_type": request.payload.entity_type,
-            },
-        )
-
-        logger.info(
-            "Push notification payload validated",
-            extra={
-                "user_id": request.user_id,
+                "notification_type": notification_type,
                 "project_id": request.payload.project_id,
                 "entity_id": request.payload.entity_id,
                 "entity_type": request.payload.entity_type,
@@ -67,6 +58,7 @@ async def push_notification(
                 extra={
                     "user_id": request.user_id,
                     "notification_id": notification.id,
+                    "notification_type": notification.type,
                     "project_id": notification.project_id,
                     "entity_id": notification.entity_id,
                     "entity_type": notification.entity_type,
@@ -100,9 +92,11 @@ async def push_notification(
             extra={
                 "user_id": request.user_id,
                 "notification_id": notification.id,
+                "notification_type": notification.type,
                 "project_id": notification.project_id,
                 "entity_id": notification.entity_id,
                 "entity_type": notification.entity_type,
+                "notification_created": created,
                 "duration_ms": round(duration * 1000, 2),
             },
         )
@@ -113,18 +107,18 @@ async def push_notification(
             "delivered_to": request.user_id,
             "created": created,
         }
-
     except Exception:
         duration = time.perf_counter() - started
         notification_delivery_duration_seconds.labels(
             type=notification_type
         ).observe(duration)
-
         notifications_push_failed_total.labels(type=notification_type).inc()
+
         logger.exception(
             "Push notification request failed",
             extra={
                 "user_id": request.user_id,
+                "notification_type": notification_type,
                 "project_id": request.payload.project_id,
                 "entity_id": request.payload.entity_id,
                 "entity_type": request.payload.entity_type,

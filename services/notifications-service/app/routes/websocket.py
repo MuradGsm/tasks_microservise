@@ -12,14 +12,22 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     user_id_raw = websocket.query_params.get("user_id")
 
     if not user_id_raw:
-        logger.info("WebSocket rejected: missing user_id")
+        logger.info(
+            "WebSocket rejected: missing user_id",
+            extra={"delivery_status": "rejected"},
+        )
         await websocket.close(code=1008)
         return
 
     try:
         user_id = int(user_id_raw)
     except ValueError:
-        logger.info("WebSocket rejected: invalid user_id")
+        logger.info(
+            "WebSocket rejected: invalid user_id",
+            extra={
+                "delivery_status": "rejected",
+            },
+        )
         await websocket.close(code=1008)
         return
 
@@ -31,17 +39,13 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         logger.info(
             "WebSocket client disconnected",
-            extra={
-                "user_id": user_id,
-            },
+            extra={"user_id": user_id},
         )
         manager.disconnect(user_id, websocket)
     except Exception:
         logger.exception(
             "WebSocket connection failed",
-            extra={
-                "user_id": user_id,
-            },
+            extra={"user_id": user_id},
         )
         manager.disconnect(user_id, websocket)
         await websocket.close()

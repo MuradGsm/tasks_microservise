@@ -25,6 +25,7 @@ class JsonFormatter(logging.Formatter):
             "request_id",
             "user_id",
             "notification_id",
+            "notification_type",
             "project_id",
             "entity_id",
             "entity_type",
@@ -37,6 +38,14 @@ class JsonFormatter(logging.Formatter):
             "connection_count",
             "delivered_to",
             "delivery_status",
+            "updated_count",
+            "limit",
+            "offset",
+            "total",
+            "unread_count",
+            "check",
+            "database",
+            "notification_created",
         )
         
         for field in extra_fields:
