@@ -1,0 +1,42 @@
+groups:
+  - name: identity-service-alerts
+    rules:
+
+      - alert: IdentityServiceDown
+        expr: up{job="identity-service"} == 0
+        for: 10s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Identity service is down"
+          description: "identity-service is not responding"
+
+      - alert: IdentityHighErrorRate
+        expr: |
+          sum(rate(django_http_responses_total_by_status_view_method_total{status=~"5.."}[1m]))
+          /
+          sum(rate(django_http_responses_total_by_status_view_method_total[1m])) > 0.1
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate in identity-service"
+          description: "More than 10% of requests are failing"
+      - alert: IdentityReadinessFailed
+        expr: probe_success{job="identity-service-readiness"} == 0
+        for: 20s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Identity DB is down"
+          description: "Readiness check failed (DB likely unavailable)"
+
+
+      - alert: IdentityLoginFailuresSpike
+        expr: rate(auth_login_fail_total[1m]) > 5
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Login failures spike"
+          description: "Too many failed login attempts"

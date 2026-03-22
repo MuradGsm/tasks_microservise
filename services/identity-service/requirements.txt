@@ -6,3 +6,5 @@ gunicorn>=21.2
 alembic
 django-prometheus
 prometheus-client
+pytest>=8.0
+pytest-django>=4.8

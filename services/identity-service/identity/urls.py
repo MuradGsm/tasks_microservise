@@ -5,13 +5,10 @@ from django.urls import path, include
 from accounts.jwt_views import LoggedTokenObtainPairView, LoggedTokenRefreshView
 from accounts.views import me
 from identity.logging import get_logger
+from identity.health import ready, health
 
 logger = get_logger("identity.urls")
 
-
-def health(_request):
-    logger.info("Health check requested")
-    return JsonResponse({"status": "ok", "service": "identity-service"})
 
 
 urlpatterns = [
@@ -24,4 +21,6 @@ urlpatterns = [
     path("auth/me/", me, name="me"),
 
     path("", include("django_prometheus.urls")),
+    path("health/", health),
+    path("ready/", ready),
 ]

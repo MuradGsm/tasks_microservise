@@ -29,6 +29,9 @@ class JsonFormatter(logging.Formatter):
             "status_code",
             "duration_ms",
             "username",
+            "event",
+            "outcome",
+            "db",
         ]
 
         for field in whitelist:

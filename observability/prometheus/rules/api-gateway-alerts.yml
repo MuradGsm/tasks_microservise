@@ -2,31 +2,77 @@ groups:
   - name: api-gateway-alerts
     rules:
       - alert: ApiGatewayHigh5xxRate
-        expr: sum(rate(http_requests_total{status=~"5.."}[1m])) > 0
+        expr: |
+          (
+            sum(rate(sjira_http_requests_total{status=~"5.."}[1m]))
+            /
+            clamp_min(sum(rate(sjira_http_requests_total[1m])), 1)
+          ) > 0.05
         for: 1m
         labels:
           severity: warning
           service: api-gateway
         annotations:
-          summary: "API Gateway returns 5xx"
-          description: "API Gateway has 5xx responses for more than 1 minute."
+          summary: "API Gateway high 5xx error rate"
+          description: "More than 5% of API Gateway responses are 5xx for 1 minute."
 
       - alert: ApiGatewayHighAuthFailures
-        expr: sum(rate(sjira_auth_failures_total[1m])) > 0
+        expr: |
+          sum(rate(sjira_auth_failures_total[1m])) > 1
         for: 1m
         labels:
           severity: warning
           service: api-gateway
         annotations:
-          summary: "High authentication failures"
-          description: "Authentication failures detected in API Gateway."
+          summary: "High authentication failures in API Gateway"
+          description: "Authentication failures rate is above 1 request per second for 1 minute."
 
       - alert: ApiGatewayUpstreamErrors
-        expr: sum(rate(sjira_upstream_requests_total{status="error"}[1m])) > 0
+        expr: |
+          sum(rate(sjira_upstream_requests_total{status="error"}[1m])) > 0.5
         for: 1m
         labels:
           severity: critical
           service: api-gateway
         annotations:
-          summary: "Upstream service unavailable"
-          description: "API Gateway cannot reach one of the upstream services."
+          summary: "API Gateway upstream errors detected"
+          description: "API Gateway cannot reach one or more upstream services."
+
+      - alert: ApiGatewayIdentityUnavailable
+        expr: |
+          sum(rate(sjira_auth_failures_total{reason="identity_unavailable"}[1m])) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: api-gateway
+        annotations:
+          summary: "Identity service unavailable"
+          description: "API Gateway cannot validate tokens because identity-service is unavailable."
+
+      - alert: ApiGatewayHighAuthLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(sjira_auth_request_duration_seconds_bucket[5m])) by (le)
+          ) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          service: api-gateway
+        annotations:
+          summary: "High auth latency in API Gateway"
+          description: "p95 auth latency is above 500ms for 2 minutes."
+
+      - alert: ApiGatewayHighUpstreamLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum(rate(sjira_upstream_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1
+        for: 2m
+        labels:
+          severity: warning
+          service: api-gateway
+        annotations:
+          summary: "High upstream latency in API Gateway"
+          description: "p95 upstream latency is above 1 second for 2 minutes."
